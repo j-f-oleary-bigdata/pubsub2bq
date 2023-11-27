@@ -256,14 +256,16 @@ select * from people;
 The results should look similar to the following:
 [Notice the new 'phone' column]
 ```
-+-----+------------+-------------+---------------+---------+-----------+---------+--------------+
-| id  | first_name | last_name   | email         | zipcode | city      | country | phone        |
-+-----+------------+-------------+---------------+---------+-----------+---------+--------------+
-| 990 | Tom        | BagofDonuts | tom@corp.com  |    2174 | Arlington | USA     | NULL         |
-| 991 | Phil       | BagofDonuts | phil@corp.com |    2174 | Arlington | USA     | NULL         |
-| 992 | Ted        | BagofDonuts | ted@corp.com  |    2174 | Arlington | USA     | NULL         |
-| 994 | Tim        | BagofDonuts | tim@corp.com  |    2174 | Arlington | USA     | 508-555-1212 |
-+-----+------------+-------------+---------------+---------+-----------+---------+--------------+
+<br>
++-----+------------+-------------+---------------+---------+-----------+---------+--------------+<br>
+| id  | first_name | last_name   | email         | zipcode | city      | country | phone        |<br>
++-----+------------+-------------+---------------+---------+-----------+---------+--------------+<br>
+| 990 | Tom        | BagofDonuts | tom@corp.com  |    2174 | Arlington | USA     | NULL         |<br>
+| 991 | Phil       | BagofDonuts | phil@corp.com |    2174 | Arlington | USA     | NULL         |<br>
+| 992 | Ted        | BagofDonuts | ted@corp.com  |    2174 | Arlington | USA     | NULL         |<br>
+| 994 | Tim        | BagofDonuts | tim@corp.com  |    2174 | Arlington | USA     | 508-555-1212 |<br>
++-----+------------+-------------+---------------+---------+-----------+---------+--------------+<br>
+<br>
 ```
 
 ### 5.1.0 Run the debezium server and make sure the data made it to BigQuery
