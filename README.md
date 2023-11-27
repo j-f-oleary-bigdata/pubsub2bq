@@ -284,10 +284,10 @@ bq query "select * from ${PROJECT_ID}.pubsub2bq_dataset.people"
 ```
 <br>
 The results should look similar to this: <br>
-[Notice there is not 'phone' column]<br>
+[Notice there is not 'phone' column]
 ```
 <br>
-+-----+------------+-------------+---------------+---------+-----------+---------+-----------+ <br>
++-----+------------+-------------+---------------+---------+-----------+---------+-----------+<br>
 | id  | first_name |  last_name  |     email     | zipcode |   city    | country | __deleted |<br>
 +-----+------------+-------------+---------------+---------+-----------+---------+-----------+<br>
 | 990 | Tom        | BagofDonuts | tom@corp.com  |    2174 | Arlington | USA     | false     |<br>
