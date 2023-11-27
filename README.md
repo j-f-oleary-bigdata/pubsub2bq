@@ -1,5 +1,8 @@
 Pub/Sub Direct to BigQuery Lab
 
+## 0. About
+This lab is based on the [Medium Article](https://medium.com/google-cloud/streaming-from-google-cloud-pub-sub-to-bigquery-without-the-middlemen-327ef24f4d15) describing how to sync data between mysql, pubsub and BigQuery.  I have added automation via Terraform, sample data and some additional tests.
+
 ## 1. Prerequisites 
 
 ### 1.1. Create a project
