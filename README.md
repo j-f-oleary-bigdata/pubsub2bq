@@ -190,20 +190,20 @@ then from the sql prompt run the following commmads:
 ```
 select * from test.people;
 ```
-
 <br>
 Output should look similar to this:
 ```
-+-----+------------+-------------+---------------+---------+-----------+---------+
-| id  | first_name | last_name   | email         | zipcode | city      | country |
-+-----+------------+-------------+---------------+---------+-----------+---------+
-| 990 | Tom        | BagofDonuts | tom@corp.com  |    2174 | Arlington | USA     |
-| 991 | Phil       | BagofDonuts | phil@corp.com |    2174 | Arlington | USA     |
-| 992 | Ted        | BagofDonuts | ted@corp.com  |    2174 | Arlington | USA     |
-+-----+------------+-------------+---------------+---------+-----------+---------+
-3 rows in set (0.03 sec)
+<br>
++-----+------------+-------------+---------------+---------+-----------+---------+<br>
+| id  | first_name | last_name   | email         | zipcode | city      | country |<br>
++-----+------------+-------------+---------------+---------+-----------+---------+<br>
+| 990 | Tom        | BagofDonuts | tom@corp.com  |    2174 | Arlington | USA     |<br>
+| 991 | Phil       | BagofDonuts | phil@corp.com |    2174 | Arlington | USA     |<br>
+| 992 | Ted        | BagofDonuts | ted@corp.com  |    2174 | Arlington | USA     |<br>
++-----+------------+-------------+---------------+---------+-----------+---------+<br>
+3 rows in set (0.03 sec)<br>
 ```
-
+<br>
 
 ### 4.1. Run the Debezium Server
 The command below needs to run in cloud shell from ~/pubsub2bq/terraform/debezium-server
@@ -225,12 +225,14 @@ bq query "select * from ${PROJECT_ID}.pubsub2bq_dataset.people"
 <br>
 The results should look similar to this:
 ```
-+-----+------------+-------------+---------------+---------+-----------+---------+-----------+
-| id  | first_name |  last_name  |     email     | zipcode |   city    | country | __deleted |
-+-----+------------+-------------+---------------+---------+-----------+---------+-----------+
-| 990 | Tom        | BagofDonuts | tom@corp.com  |    2174 | Arlington | USA     | false     |
-| 991 | Phil       | BagofDonuts | phil@corp.com |    2174 | Arlington | USA     | false     |
-| 992 | Ted        | BagofDonuts | ted@corp.com  |    2174 | Arlington | USA     | false     |
+<br>
++-----+------------+-------------+---------------+---------+-----------+---------+-----------+<br>
+| id  | first_name |  last_name  |     email     | zipcode |   city    | country | __deleted |<br>
++-----+------------+-------------+---------------+---------+-----------+---------+-----------+<br>
+| 990 | Tom        | BagofDonuts | tom@corp.com  |    2174 | Arlington | USA     | false     |<br>
+| 991 | Phil       | BagofDonuts | phil@corp.com |    2174 | Arlington | USA     | false     |<br>
+| 992 | Ted        | BagofDonuts | ted@corp.com  |    2174 | Arlington | USA     | false     |<br>
+<br>
 ```
 
 ## 5. Modify the mysql table schema for the 'people' table and add a new record
