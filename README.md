@@ -155,7 +155,7 @@ nohup cloud-sql-proxy --port 3306 $PROJECT_ID:us-central1:mysql-pubsub2bq > sqlp
 ### 4.1.1 Verify CloudSQL Proxy Started Correctly
 Execute the command: 
 ```
-admin_@cloudshell:~ (pubsub2bqv2)$ 
+admin_@cloudshell:~ (pubsub2bqv2)$ tail -f sqlproxy.log
 ```
 
 Output should look similar to this:
