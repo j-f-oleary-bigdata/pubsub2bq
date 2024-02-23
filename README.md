@@ -1,8 +1,5 @@
 Pub/Sub Direct to BigQuery Lab
 
-## 0. About
-This lab is based on the [Medium Article](https://medium.com/google-cloud/streaming-from-google-cloud-pub-sub-to-bigquery-without-the-middlemen-327ef24f4d15) describing how to sync data between mysql, pubsub and BigQuery.  I have added automation via Terraform, sample data and some additional tests.
-
 ## 1. Prerequisites 
 
 ### 1.1. Create a project
@@ -193,6 +190,7 @@ then from the sql prompt run the following commmads:
 ```
 select * from test.people;
 ```
+
 <br>
 Output should look similar to this:
 ```
@@ -205,10 +203,11 @@ Output should look similar to this:
 | 992 | Ted        | BagofDonuts | ted@corp.com  |    2174 | Arlington | USA     |<br>
 +-----+------------+-------------+---------------+---------+-----------+---------+<br>
 3 rows in set (0.03 sec)<br>
-```
 <br>
+```
 
-### 4.1. Run the Debezium Server
+
+### 4.3. Run the Debezium Server
 The command below needs to run in cloud shell from ~/pubsub2bq/terraform/debezium-server
 
 ```
@@ -216,10 +215,10 @@ cd ~/pubsub2bq/terraform/~/pubsub2bq/terraform/debezium-server
 ./run.sh
 ```
 
-### 4.1.1
+### 4.3.1
 Stop the debezium server by hitting ctrl-c in the cloud-shell terminal window
 
-### 4.2. Validate the data made it to BigQuery
+### 4.4. Validate the data made it to BigQuery
 
 Run the query below from the cloud shell:
 ```
@@ -247,13 +246,13 @@ Run the following command:
 mysql -u pubsub2bq -p${MYPASS} --host 127.0.0.1
 ```
 <br>
-then from the sql prompt run the following commmads:
+then from the sql prompt run the following commmads:<br>
 ```
-use test;
-alter table people ADD column phone VARCHAR(255);
-INSERT INTO people (id, first_name, last_name,email,zipcode,city,country,phone) 
-values (994, "Tim", "BagofDonuts","tim@corp.com", 2174 ,"Arlington","USA","508-555-1212");
-select * from people;
+use test; <br>
+alter table people ADD column phone VARCHAR(255);<br>
+INSERT INTO people (id, first_name, last_name,email,zipcode,city,country,phone) <br>
+values (994, "Tim", "BagofDonuts","tim@corp.com", 2174 ,"Arlington","USA","508-555-1212");<br>
+select * from people;<br>
 ```
 <br>
 The results should look similar to the following:
@@ -291,10 +290,10 @@ bq query "select * from ${PROJECT_ID}.pubsub2bq_dataset.people"
 ```
 <br>
 The results should look similar to this: <br>
-[Notice there is not 'phone' column]
+[Notice there is not 'phone' column]<br>
 ```
 <br>
-+-----+------------+-------------+---------------+---------+-----------+---------+-----------+<br>
++-----+------------+-------------+---------------+---------+-----------+---------+-----------+ <br>
 | id  | first_name |  last_name  |     email     | zipcode |   city    | country | __deleted |<br>
 +-----+------------+-------------+---------------+---------+-----------+---------+-----------+<br>
 | 990 | Tom        | BagofDonuts | tom@corp.com  |    2174 | Arlington | USA     | false     |<br>

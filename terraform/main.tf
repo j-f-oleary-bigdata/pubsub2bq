@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@
  
 locals {
   prefix = "pubsub2bq"
+  _project_number           = var.project_nbr
+  bucket_name               = format("%s-%s", local.prefix, var.project_nbr)
   pubsub2bq_dataset_name    = format("%s_dataset", local.prefix) 
   pubsub2bq_table_name      = "people"
   pubsub2bq_dead_letter     = format("%s-dead-letter", local.prefix)
@@ -31,22 +33,50 @@ locals {
   mysql_pubsub2bq_tablename = "people"
   pubsub2bq_pubsub_topic    = format("%s.%s.%s", local.mysql_pubsub2bq, local.mysql_pubsub2bq_dbname, local.pubsub2bq_table_name)
   pubsub_schemaname         = format("%s-schema", local.prefix)
+  activate_apis = [
+    "datastream.googleapis.com",
+    "orgpolicy.googleapis.com",
+    "pubsub.googleapis.com",
+    "bigquery.googleapis.com", 
+    "storage.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "logging.googleapis.com",
+    "monitoring.googleapis.com",
+    "sqladmin.googleapis.com",
+    "compute.googleapis.com",
+    "secretmanager.googleapis.com",
+    "serviceusage.googleapis.com",
+    "servicenetworking.googleapis.com"
+    ]
 }
-
-
-
-data "google_project" "project" {}
-
-locals {
-  _project_number = data.google_project.project.number
-}
-
 
 provider "google" {
   project = var.project_id
   region  = var.location
 }
- 
+
+####################################################################################
+# Enable APIs                                                                      #
+####################################################################################
+resource "google_project_service" "project_services" {
+  for_each                   = toset(local.activate_apis)
+  project                    = var.project_id
+  service                    = each.value
+  disable_on_destroy         = false
+  disable_dependent_services = false
+}
+
+/*******************************************
+Introducing sleep to minimize errors from
+dependencies having not completed
+********************************************/
+resource "time_sleep" "sleep_after_activate_service_apis" {
+  create_duration = "60s"
+
+  depends_on = [
+    google_project_service.project_services
+  ]
+}
 
 ####################################################################################
 # Resource for Network Creation                                                    #
@@ -59,6 +89,9 @@ resource "google_compute_network" "default_network" {
   description             = "Default network"
   auto_create_subnetworks = false
   mtu                     = 1460
+  depends_on = [
+    time_sleep.sleep_after_activate_service_apis
+  ]
 }
 
 ####################################################################################
@@ -116,9 +149,81 @@ resource "google_compute_firewall" "user_firewall_rule" {
   ]
 }
 
+
+# Firewall for NAT Router
+resource "google_compute_firewall" "subnet_firewall_rule" {
+  project = var.project_id
+  name    = "subnet-nat-firewall"
+  network = google_compute_network.default_network.id
+
+  allow {
+    protocol = "icmp"
+  }
+
+  allow {
+    protocol = "tcp"
+  }
+
+  allow {
+    protocol = "udp"
+  }
+  source_ranges = [var.ip_range]
+
+  depends_on = [
+    google_compute_subnetwork.main_subnet
+  ]
+}
+
+resource "google_compute_router" "nat-router" {
+  project = var.project_id
+  name    = "nat-router"
+  region  = var.location
+  network = google_compute_network.default_network.id
+
+  depends_on = [
+    google_compute_firewall.subnet_firewall_rule
+  ]
+}
+
+resource "google_compute_router_nat" "nat-config" {
+  project                            = var.project_id
+  name                               = "nat-config"
+  router                             = google_compute_router.nat-router.name
+  region                             = var.location
+  nat_ip_allocate_option             = "AUTO_ONLY"
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+
+  depends_on = [
+    google_compute_router.nat-router
+  ]
+}
+
+
 #data "google_compute_network" "default_network" {
 #  name = "default"
 #}
+
+# Firewall rule for Cloud Shell to SSH in Compute VMs
+# A compute VM will be deployed as a SQL Reverse Proxy for Datastream private connectivity
+resource "google_compute_firewall" "cloud_shell_ssh_firewall_rule" {
+  project = var.project_id
+  name    = "cloud-shell-ssh-firewall-rule"
+  network = google_compute_network.default_network.id
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  direction   = "INGRESS"
+  target_tags = ["allow-ssh"]
+
+  source_ranges = ["35.235.240.0/20"]
+
+  depends_on = [
+    google_compute_network.default_network
+  ]
+}
 
 
 /*******************************************
@@ -128,7 +233,8 @@ dependencies having not completed
 resource "time_sleep" "sleep_after_network_and_iam_steps" {
   create_duration = "120s"
   depends_on = [
-                google_compute_firewall.user_firewall_rule
+                google_compute_firewall.user_firewall_rule,
+                google_compute_firewall.cloud_shell_ssh_firewall_rule
               ]
 }
 
@@ -206,12 +312,16 @@ resource "google_bigquery_table" "people_table" {
 
 resource "google_pubsub_topic" "dead_letter" {
   name = local.pubsub2bq_dead_letter
+
+  depends_on = [time_sleep.sleep_after_network_and_iam_steps]  
 }
 
 resource "google_pubsub_schema" "pubsub2bq_schema" {
   name = local.pubsub_schemaname
   type = "AVRO"
   definition = "{\n \"type\": \"record\",\n \"name\": \"Avro\",\n \"fields\": [\n {\n \"name\": \"id\",\n \"type\": \"int\"\n },\n {\n \"name\": \"first_name\",\n \"type\": \"string\"\n },\n {\n \"name\": \"last_name\",\n \"type\": \"string\"\n },\n {\n \"name\": \"email\",\n \"type\": \"string\"\n },\n {\n \"name\": \"zipcode\",\n \"type\": \"int\"\n },\n {\n \"name\": \"city\",\n \"type\": \"string\"\n },\n {\n \"name\": \"country\",\n \"type\": \"string\"\n },\n {\n \"name\": \"__deleted\",\n \"type\": \"string\"\n }\n ]\n }\n"
+
+  depends_on = [time_sleep.sleep_after_network_and_iam_steps]
 }
 
 resource "google_pubsub_topic" "pubsub2bq_topic" {
@@ -267,6 +377,8 @@ resource "google_pubsub_subscription" "bigquery_sub" {
 
 resource "google_pubsub_topic" "mysql_topic" {
   name = local.mysql_pubsub_topic
+  
+  depends_on = [time_sleep.sleep_after_network_and_iam_steps]
 }
 
 resource "google_pubsub_subscription" "mysql_subscription" {
@@ -288,4 +400,44 @@ resource "google_project_iam_member" "service_account_worker_role" {
   role     = "roles/bigquery.dataEditor"
   member   = "serviceAccount:service-${var.project_nbr}@gcp-sa-pubsub.iam.gserviceaccount.com"
 
+  depends_on = [time_sleep.sleep_after_network_and_iam_steps]
 }
+
+resource "google_project_organization_policy" "list_policies" {
+  for_each = {
+    "compute.vmCanIpForward" : true,
+    "compute.vmExternalIpAccess" : true,
+    "compute.restrictVpcPeering" : true
+  }
+  project     = var.project_id
+  constraint = format("constraints/%s", each.key)
+  list_policy {
+    allow {
+      all = each.value
+    }
+  }
+
+  depends_on = [
+    time_sleep.sleep_after_activate_service_apis
+  ]
+
+}
+
+resource "google_project_organization_policy" "bool-policies" {
+  for_each = {
+    "compute.requireOsLogin" : false,
+    "compute.disableSerialPortLogging" : false,
+    "compute.requireShieldedVm" : false
+  }
+  project    = var.project_id
+  constraint = format("constraints/%s", each.key)
+  boolean_policy {
+    enforced = each.value
+  }
+
+  depends_on = [
+    time_sleep.sleep_after_activate_service_apis
+  ]
+
+}
+
