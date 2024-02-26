@@ -93,7 +93,7 @@ destination_config_json=$(cat <<EOF
   "sourceHierarchyDatasets": {
     "datasetTemplate": {
       "location": "${BIGQUERY_REGION}",
-      "datasetIdPrefix": "datastream_",
+      "datasetIdPrefix": "cdc_",
     }
   },
   "dataFreshness": "0s"

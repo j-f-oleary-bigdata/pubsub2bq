@@ -17,22 +17,36 @@ resource "random_password" "db_password" {
   length           = 16
   special          = true
   override_special = "_%@"
+
+  depends_on = [
+    time_sleep.sleep_after_activate_service_apis
+  ]
+
 }
 
-/*
+
 resource "google_secret_manager_secret" "secret" {
-  project   = data.google_project.project.project_id
+  project   = var.project_id
   secret_id = "mysql-db-password"
   replication {
     auto {}
   }
+
+  depends_on = [
+    random_password.db_password
+  ]
 }
 
 resource "google_secret_manager_secret_version" "secret-version-data" {
   secret      = google_secret_manager_secret.secret.name
   secret_data = random_password.db_password.result
+
+  depends_on = [
+    google_secret_manager_secret.secret
+  ]
+
 }
-*/
+
 
 resource "google_sql_database_instance" "instance" {
   name             = local.mysql_pubsub2bq
@@ -59,6 +73,7 @@ resource "google_sql_database_instance" "instance" {
 
 }
 
+/*
 resource "google_sql_database" "database" {
   name     = local.mysql_pubsub2bq_dbname
   project  = var.project_id
@@ -69,6 +84,7 @@ resource "google_sql_database" "database" {
   ]
 
 }
+*/
 
 /*
 resource "google_sql_database_instance" "default" {
@@ -85,13 +101,16 @@ resource "google_sql_user" "user" {
   instance = google_sql_database_instance.instance.name
   password = random_password.db_password.result
 
-  depends_on = [google_sql_database.database]
+  depends_on = [    
+    google_sql_database_instance.instance 
+  ]
 }
 
 locals {
     mysql_password = random_password.db_password.result
 }
 
+/*
 resource "null_resource" "debezium_downloadv2" {
    provisioner "local-exec" {
     command = <<-EOT
@@ -101,25 +120,47 @@ resource "null_resource" "debezium_downloadv2" {
  }
   depends_on = [google_sql_database.database]
 }
-
+*/
 
 resource "google_storage_bucket" "bucket-pubsub2bq" {
   project                     = var.project_id
-  name                        = var.bucket_name
+  name                        = local.bucket_name
   location                    = var.location
   force_destroy               = true
   uniform_bucket_level_access = true
-  depends_on = [null_resource.debezium_downloadv2]
+  
+  depends_on = [google_sql_database_instance.instance]
 }
 
+resource "google_project_iam_member" "service_account_owner" {
+  for_each = toset([
+    "roles/storage.objectViewer",
+    "roles/bigquery.dataViewer",
+    "roles/bigquery.jobUser",
+    "roles/pubsub.publisher",
+    "roles/secretmanager.secretAccessor"
+  ])
+
+  project   = var.project_id
+  member    = "serviceAccount:${local.gmsa_fqn}"
+  role = each.key
+  
+  depends_on = [
+    google_storage_bucket.bucket-pubsub2bq
+  ]
+}
+
+/*
 resource "null_resource" "create_debezium_properties" {
   provisioner "local-exec" {
     command = <<-EOT
         cp ../conf/debezium.properties  application.properties && \
-         sed -i '' -e s/PROJECT_ID/${var.project_id}/g application.properties && \
+         sed -i '' -es/PROJECT_ID/${var.project_id}/g application.properties && \
          sed -i '' -es/MYSQL_PASSWORD/${local.mysql_password}/g application.properties && \
          sed -i '' -es/MYSQL_SERVERNAME/${local.mysql_pubsub2bq}/g application.properties && \
-        sed -i '' -es/MYSQL_DATABASENAME/${local.mysql_pubsub2bq_dbname}/g application.properties
+         sed -i '' -es/MYSQL_DATABASENAME/${local.mysql_pubsub2bq_dbname}/g application.properties && \
+         sed -i '' -es/MYSQL_IP/${google_sql_database_instance.instance.private_ip_address}/g application.properties && \
+        gsutil application.properties gs://${local.bucket_name}/
     EOT
     interpreter = ["bash", "-c"]
   }
@@ -137,39 +178,52 @@ resource "null_resource" "mysql_script_creation" {
     }
   depends_on = [google_storage_bucket.bucket-pubsub2bq]
 }
+*/
 
 
-
-/*
-resource "null_resource" "create_debezium_properties {
+resource "null_resource" "create_debezium_properties" {
   provisioner "local-exec" {
     command = <<-EOT
         cp ../conf/debezium.properties  application.properties && \
          sed -i s/PROJECT_ID/${var.project_id}/g application.properties && \
          sed -i s/MYSQL_PASSWORD/${local.mysql_password}/g application.properties && \
          sed -i s/MYSQL_SERVERNAME/${local.mysql_pubsub2bq}/g application.properties && \
-        sed -i s/MYSQL_DATABASENAME/${local.mysql_pubsub2bq_dbname}/g application.properties
-        cp application.properties ./debezium-server/conf
-        gsutil application.properties gs://${local.bucket_name}/
+         sed -i s/MYSQL_DATABASENAME/${local.mysql_pubsub2bq_dbname}/g application.properties && \
+         sed -i s/MYSQL_IP/${google_sql_database_instance.instance.private_ip_address}/g application.properties && \
+         gsutil cp application.properties gs://${local.bucket_name}/
     EOT
     interpreter = ["bash", "-c"]
   }
-
+  depends_on = [google_storage_bucket.bucket-pubsub2bq]
 }
 
 resource "null_resource" "mysql_script_creation" {
     provisioner "local-exec" {
         command = <<-EOT
             cp ../sql/pubsub2bq.sql pubsub2bq.sql && \
+            sed -i s/MYSQL_DATABASENAME/${local.mysql_pubsub2bq_dbname}/g pubsub2bq.sql && \
             sed -i s/MYSQL_SERVERNAME/${local.mysql_pubsub2bq}/g pubsub2bq.sql && \
-            sed -i s/MYSQL_TABLENAME/${local.mysql_pubsub2bq_tablename}/g pubsub2bq.sql
-            gsutil pubsub2bq.sql gs://${local.bucket_name}/
+            sed -i s/MYSQL_TABLENAME/${local.mysql_pubsub2bq_tablename}/g pubsub2bq.sql && \
+            gsutil cp pubsub2bq.sql gs://${local.bucket_name}/
         EOT
         interpreter = ["bash", "-c"]
     }
-  depends_on = [null_resource.debezium_download]
+  depends_on = [google_storage_bucket.bucket-pubsub2bq]
 }
-*/
+
+resource "null_resource" "mysql_script_creation_datastream" {
+    provisioner "local-exec" {
+        command = <<-EOT
+            cp ../sql/pubsub2bq.sql datastream2bq.sql && \
+            sed -i s/MYSQL_DATABASENAME/${local.mysql_datastream2bq_dbname}/g datastream2bq.sql && \
+            sed -i s/MYSQL_SERVERNAME/${local.mysql_pubsub2bq}/g datastream2bq.sql && \
+            sed -i s/MYSQL_TABLENAME/${local.mysql_pubsub2bq_tablename}/g datastream2bq.sql && \
+            gsutil cp datastream2bq.sql gs://${local.bucket_name}/
+        EOT
+        interpreter = ["bash", "-c"]
+    }
+  depends_on = [google_storage_bucket.bucket-pubsub2bq]
+}
 
 resource "google_compute_instance" "cloudsql_proxy" {
   name         = "sql-reverse-proxy"
@@ -214,12 +268,10 @@ sudo echo 1 > /proc/sys/net/ipv4/ip_forward
 sudo iptables -t nat -A PREROUTING -p tcp -m tcp --dport $DB_PORT -j DNAT --to-destination $DB_ADDR:$DB_PORT
 sudo iptables -t nat -A POSTROUTING -j SNAT --to-source $LOCAL_IP_ADDR
 
-#get latest repo's and then install mysql client
-sudo apt update
-sudo apt install default-mysql-client
-
-#get mysql SCRIPTS
-gsutil cp gs://${local.bucket_name}/* .
+#get latest repo's and then install mysql client and java sdk (for debezium)
+sudo apt -y update
+sudo apt -y install default-mysql-client
+sudo apt -y install openjdk-11-jdk
 
 # list tables
 # sudo iptables -L -n -t nat

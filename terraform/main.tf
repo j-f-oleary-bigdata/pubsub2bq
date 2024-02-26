@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-
-
- 
 locals {
   prefix = "pubsub2bq"
   _project_number           = var.project_nbr
@@ -29,11 +26,16 @@ locals {
   mysql_pubsub_topic        = "mysql-pubsub2bq"
   mysql_pubsub_sub          = "mysql-sub"
   mysql_pubsub2bq           = "mysql-pubsub2bq"
-  mysql_pubsub2bq_dbname    = "test"
+  mysql_pubsub2bq_dbname    = "debezium_test"
   mysql_pubsub2bq_tablename = "people"
+  mysql_datastream2bq_dbname  = "datastream_test"
   pubsub2bq_pubsub_topic    = format("%s.%s.%s", local.mysql_pubsub2bq, local.mysql_pubsub2bq_dbname, local.pubsub2bq_table_name)
   pubsub_schemaname         = format("%s-schema", local.prefix)
+  gmsa_fqn                  = "${var.project_nbr}-compute@developer.gserviceaccount.com"
   activate_apis = [
+    "cloudbilling.googleapis.com",
+    "oslogin.googleapis.com",
+    "serviceusage.googleapis.com",
     "datastream.googleapis.com",
     "orgpolicy.googleapis.com",
     "pubsub.googleapis.com",
@@ -45,7 +47,6 @@ locals {
     "sqladmin.googleapis.com",
     "compute.googleapis.com",
     "secretmanager.googleapis.com",
-    "serviceusage.googleapis.com",
     "servicenetworking.googleapis.com"
     ]
 }
@@ -55,6 +56,40 @@ provider "google" {
   region  = var.location
 }
 
+/*
+resource "google_project" "project" {
+  name                = var.project_id
+  project_id          = var.project_id
+  auto_create_network = false
+  skip_delete         = true
+  billing_account     = "${var.account_id}"
+
+}
+*/
+
+####################################################################################
+# Enable serviceusageapi                                                           #
+####################################################################################
+
+resource "google_project_service" "project_serviceusage" {
+  project                    = var.project_id
+  service                    = "serviceusage.googleapis.com"
+  disable_on_destroy         = false
+  disable_dependent_services = false
+}
+
+/*******************************************
+Introducing sleep to minimize errors from
+dependencies having not completed
+********************************************/
+resource "time_sleep" "sleep_after_activate_serviceusage" {
+  create_duration = "60s"
+
+  depends_on = [
+    google_project_service.project_serviceusage
+  ]
+}
+
 ####################################################################################
 # Enable APIs                                                                      #
 ####################################################################################
@@ -62,8 +97,12 @@ resource "google_project_service" "project_services" {
   for_each                   = toset(local.activate_apis)
   project                    = var.project_id
   service                    = each.value
-  disable_on_destroy         = false
-  disable_dependent_services = false
+  disable_on_destroy         = true
+  disable_dependent_services = true
+
+  depends_on = [
+    time_sleep.sleep_after_activate_serviceusage
+  ]
 }
 
 /*******************************************

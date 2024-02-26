@@ -24,6 +24,13 @@ variable "project_nbr" {
   description = "project id required"
 }
 
+/*
+variable "account_id" {
+  type        = string
+  description = "account id required"
+}
+*/
+
 variable "location" {
  description = "Location/region to be used"
  default = "us-central1"

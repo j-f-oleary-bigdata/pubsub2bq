@@ -21,11 +21,6 @@
       },
       {
         "mode": "NULLABLE",
-        "name": "zipcode",
-        "type": "INTEGER"
-      },
-      {
-        "mode": "NULLABLE",
         "name": "city",
         "type": "STRING"
       },
