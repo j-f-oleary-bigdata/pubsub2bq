@@ -87,33 +87,9 @@ PROJECT_NBR=`gcloud projects describe $PROJECT_ID | grep projectNumber | cut -d'
 echo "PROJECT_ID=$PROJECT_ID"
 ```
 
-#### 3.4.2. Provision foundational resources
-
-Foundational resources in this lab constitute Google APIs and Organizational Policies. 
+#### 3.4.2. Provision data analytics services & dependencies
 
 ##### 3.4.2.1. Initialize Terraform
-The command below needs to run in cloud shell from ~/pubsub2bq/org_policy
-
-```
-cd ~/pubsub2bq/terraform/org_policy
-terraform init
-```
-
-##### 3.4.2.2. Terraform deploy the resources
-
-The terraform below first enables Google APIs needed for the demo, and then updates organization policies. It needs to run in cloud shell from ~/pubsub2bq/org_policy. <br>
-
-**Time taken to complete:** <5 minutes
-
-```
-terraform apply \
-  -var="project_id=${PROJECT_ID}" \
-  --auto-approve
-```
-
-#### 3.4.3. Provision data analytics services & dependencies
-
-##### 3.4.3.1. Initialize Terraform
 
 Needs to run in cloud shell from ~/pubsub2bq/terraform
 ```
@@ -121,7 +97,7 @@ cd ~/pubsub2bq/terraform
 terraform init
 ```
 
-##### 3.4.3.2. Review the Terraform deployment plan
+##### 3.4.2.2. Review the Terraform deployment plan
 
 Needs to run in cloud shell from ~/pubsub2bq/terraform
 ```
